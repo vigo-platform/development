@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init-dbs.sql:/docker-entrypoint-initdb.d/init-dbs.sql:ro
     networks:
-      - monitoring-net
+      - app-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER is required} -d ${POSTGRES_DB:?POSTGRES_DB is required}"]
       interval: 10s
@@ -32,12 +32,13 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - monitoring-net
+      - app-network
 
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node_exporter
     restart: unless-stopped
+    pid: host
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
@@ -50,22 +51,32 @@ services:
     ports:
       - "9100:9100"
     networks:
-      - monitoring-net
+      - app-network
 
   alertmanager:
     image: prom/alertmanager:latest
     container_name: alertmanager
     restart: unless-stopped
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/alertmanager'
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?TELEGRAM_CHAT_ID is required}
+      TELEGRAM_MESSAGE_THREAD_ID: ${TELEGRAM_MESSAGE_THREAD_ID:?TELEGRAM_MESSAGE_THREAD_ID is required}
     volumes:
-      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/alertmanager.yml.tmpl:/etc/alertmanager/alertmanager.yml.tmpl:ro
       - alertmanager_data:/alertmanager
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        sed -e "s|__TELEGRAM_BOT_TOKEN__|$$TELEGRAM_BOT_TOKEN|g" \
+            -e "s|__TELEGRAM_CHAT_ID__|$$TELEGRAM_CHAT_ID|g" \
+            -e "s|__TELEGRAM_MESSAGE_THREAD_ID__|$$TELEGRAM_MESSAGE_THREAD_ID|g" \
+            /etc/alertmanager/alertmanager.yml.tmpl > /tmp/alertmanager.yml
+        exec /bin/alertmanager --config.file=/tmp/alertmanager.yml --storage.path=/alertmanager
     ports:
       - "9093:9093"
     networks:
-      - monitoring-net
+      - app-network
 
   prometheus:
     image: prom/prometheus:latest
@@ -88,7 +99,7 @@ services:
     depends_on:
       - alertmanager
     networks:
-      - monitoring-net
+      - app-network
 
   grafana:
     image: grafana/grafana:latest
@@ -106,10 +117,10 @@ services:
     depends_on:
       - prometheus
     networks:
-      - monitoring-net
+      - app-network
 
 networks:
-  monitoring-net:
+  app-network:
     driver: bridge
 
 volumes:
