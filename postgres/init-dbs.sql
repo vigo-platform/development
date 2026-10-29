@@ -1,19 +1,10 @@
--- ==========================================
--- Saghar
--- ==========================================
-CREATE DATABASE "vigo-api-gateway-service";
-CREATE DATABASE "vigo-notification-service";
-CREATE DATABASE "vigo-chat-service";
+CREATE DATABASE "vigo_api_gateway_service";
+CREATE DATABASE "vigo_notification_service";
+CREATE DATABASE "vigo_chat_service";
 
--- ==========================================
--- Sarina Asadi
--- ==========================================
-CREATE DATABASE "vigo-user-service";
-CREATE DATABASE "vigo-storage-service";
+CREATE DATABASE "vigo_user_service";
+CREATE DATABASE "vigo_storage_service";
 
--- ==========================================
--- Taha
--- ==========================================
-CREATE DATABASE "vigo-auth-service";
-CREATE DATABASE "vigo-order-service";
-CREATE DATABASE "vigo-payment-service";
+CREATE DATABASE "vigo_auth_service";
+CREATE DATABASE "vigo_order_service";
+CREATE DATABASE "vigo_payment_service";
