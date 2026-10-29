@@ -19,3 +19,17 @@ datasources:
     editable: true
     jsonData:
       implementation: prometheus
+
+  - name: Elasticsearch
+    type: elasticsearch
+    uid: elasticsearch
+    orgId: 1
+    url: http://elasticsearch:9200
+    access: proxy
+    editable: true
+    jsonData:
+      index: "app-logs-*"
+      timeField: "@timestamp"
+      esVersion: "8.0.0"
+      logMessageField: message
+      logLevelField: level

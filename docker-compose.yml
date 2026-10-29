@@ -9,6 +9,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
     ports:
       - "5432:5432"
+    labels:
+      logging: true
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init-dbs.sql:/docker-entrypoint-initdb.d/init-dbs.sql:ro
@@ -61,6 +63,8 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?TELEGRAM_CHAT_ID is required}
       TELEGRAM_MESSAGE_THREAD_ID: ${TELEGRAM_MESSAGE_THREAD_ID:?TELEGRAM_MESSAGE_THREAD_ID is required}
+    labels:
+      logging: true
     volumes:
       - ./alertmanager/alertmanager.yml.tmpl:/etc/alertmanager/alertmanager.yml.tmpl:ro
       - alertmanager_data:/alertmanager
@@ -119,6 +123,72 @@ services:
     networks:
       - app-network
 
+  # ── Elasticsearch ──────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - cluster.name=app-logs-cluster
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ── Kibana ─────────────────────────────────────────────────
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    container_name: kibana
+    restart: unless-stopped
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - xpack.security.enabled=false
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # ── Vector (Log Collector & Shipper) ───────────────────────
+  vector:
+    image: timberio/vector:latest-alpine
+    container_name: vector
+    user: root
+    restart: unless-stopped
+    ports:
+      - "5044:5044"
+      - "8686:8686"
+    volumes:
+      - ./vector/vector.yml:/etc/vector/vector.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vector_data:/var/lib/vector
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - app-network
+    command: ["--config", "/etc/vector/vector.yml"]
+  
 networks:
   app-network:
     driver: bridge
@@ -128,3 +198,5 @@ volumes:
   prometheus_data:
   grafana_data:
   alertmanager_data:
+  elasticsearch_data:
+  vector_data:

@@ -1,0 +1,129 @@
+# =============================================================
+# Vector Configuration - Network & Docker Log Collection
+# =============================================================
+# 1) Collects logs directly from Spring Boot via TCP / HTTP
+# 2) Collects logs automatically from Docker containers
+# =============================================================
+
+data_dir: /var/lib/vector
+
+# ── Sources ─────────────────────────────────────────────────
+sources:
+  # 1) TCP Socket: Spring Boot sends JSON logs directly over TCP
+  app_tcp:
+    type: socket
+    mode: tcp
+    address: "0.0.0.0:5044"
+    decoding:
+      codec: json
+
+  # 2) HTTP Server: Alternative if your app sends logs via HTTP POST
+  app_http:
+    type: http_server
+    address: "0.0.0.0:8686"
+    encoding: json
+
+  # 3) Docker Logs: Automatically reads stdout/stderr from Docker containers
+  docker_logs:
+    type: docker_logs
+    docker_host: unix:///var/run/docker.sock
+    include_labels:
+      - "logging=true"
+    exclude_containers:
+      - vector
+
+# ── Transforms ──────────────────────────────────────────────
+transforms:
+  # Enrich Spring Boot application logs
+  enrich_app_logs:
+    type: remap
+    inputs:
+      - app_tcp
+      - app_http
+    source: |
+      .log_source = "spring-boot"
+
+      # If message contains a JSON string, unpack and flatten its fields
+      if exists(.message) && is_string(.message) {
+        parsed, err = parse_json(.message)
+        if err == null && is_object(parsed) {
+          . = merge!(., parsed)
+        }
+      }
+
+      # Standardize service_name across all logs
+      if !exists(.service_name) || .service_name == "" {
+        if exists(.service) && is_string(.service) {
+          .service_name = .service
+        } else if exists(.app_name) && is_string(.app_name) {
+          .service_name = .app_name
+        } else if exists(.appName) && is_string(.appName) {
+          .service_name = .appName
+        } else if exists(.application) && is_string(.application) {
+          .service_name = .application
+        } else if exists(.context) && is_string(.context) && .context != "default" {
+          .service_name = .context
+        } else {
+          .service_name = "spring-boot"
+        }
+      }
+
+      # Ensure standard timestamp
+      if !exists(.@timestamp) {
+        if exists(.timestamp) {
+          .@timestamp = .timestamp
+        } else {
+          .@timestamp = now()
+        }
+      }
+
+  # Enrich Docker container logs
+  enrich_docker_logs:
+    type: remap
+    inputs:
+      - docker_logs
+    source: |
+      .log_source = "docker-container"
+
+      # Standardize service_name from custom label, compose service, or container name
+      if exists(.label."service") {
+        .service_name = .label."service"
+      } else if exists(.label."service_name") {
+        .service_name = .label."service_name"
+      } else if exists(.label."com.docker.compose.service") {
+        .service_name = .label."com.docker.compose.service"
+      } else if exists(.container_name) {
+        .service_name = .container_name
+      } else {
+        .service_name = "docker-service"
+      }
+
+      # Remove Docker labels to prevent Elasticsearch mapping conflicts
+      del(.label)
+
+      # If container output is JSON, unpack into root fields
+      if exists(.message) && is_string(.message) {
+        parsed, err = parse_json(.message)
+        if err == null && is_object(parsed) {
+          . = merge!(., parsed)
+        }
+      }
+
+      .@timestamp = now()
+
+# ── Sinks ───────────────────────────────────────────────────
+sinks:
+  # Ship processed logs directly to Elasticsearch
+  elasticsearch:
+    type: elasticsearch
+    inputs:
+      - enrich_app_logs
+      - enrich_docker_logs
+    endpoints:
+      - http://elasticsearch:9200
+    mode: bulk
+    bulk:
+      index: "app-logs-%Y.%m.%d"
+    encoding:
+      except_fields:
+        - source_type
