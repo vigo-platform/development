@@ -169,6 +169,20 @@ services:
     networks:
       - app-network
 
+  # Import the dashboard and its dependencies after Kibana is ready.
+  kibana-setup:
+    image: python:3.12-alpine
+    restart: "no"
+    environment:
+      KIBANA_URL: http://kibana:5601
+    volumes:
+      - ./dashboards/kibana:/dashboards:ro
+    command: ["python", "-u", "/dashboards/import_dashboard.py"]
+    depends_on:
+      - kibana
+    networks:
+      - app-network
+
   # ── Vector (Log Collector & Shipper) ───────────────────────
   vector:
     image: timberio/vector:latest-alpine
