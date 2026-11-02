@@ -1,4 +1,23 @@
 services:
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    labels:
+      logging: true
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
   postgres:
     image: postgres:16-alpine
     container_name: postgres
@@ -208,6 +227,7 @@ networks:
     driver: bridge
 
 volumes:
+  redis_data:
   postgres_data:
   prometheus_data:
   grafana_data:

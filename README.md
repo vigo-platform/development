@@ -1,5 +1,24 @@
 # development
 
+## Redis
+
+The Redis service uses `redis:7`, reusing the local image when available.
+Start it independently with:
+
+```sh
+docker compose up -d redis
+docker compose exec redis redis-cli ping
+```
+
+The health check should return `PONG`. Connect from your machine at
+`127.0.0.1:6379`, or from services on `app-network` at `redis:6379`.
+Set `REDIS_PORT` in `.env` to change the host port.
+
+Service settings are in `docker-compose.yml`; Redis uses its default server
+settings without a separate configuration file. The `redis_data` volume stores
+any snapshots Redis writes; AOF is disabled by default. The host port is bound
+to localhost; no password is configured for this local development service.
+
 ## Kibana dashboard
 
 Copy `.env.example` to `.env`, fill in the required values, then run:
