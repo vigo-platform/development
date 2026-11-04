@@ -1,5 +1,53 @@
 # development
 
+## Service configuration
+
+Each service reads its own `<service>/.env`. This project uses Docker Compose
+2.30 or later. From a fresh checkout, create the local files from their templates:
+
+```sh
+for template in */.env.example; do
+  target="${template%.example}"
+  if [ ! -e "$target" ]; then
+    (umask 077; cp "$template" "$target")
+  fi
+done
+```
+
+Enter literal values without surrounding quotes. Fill in the Telegram settings
+in `alertmanager/.env` before starting Alertmanager. If you change the
+PostgreSQL credentials, update `auth/.env` and `postgres-exporter/.env` to
+match. Compose uses its own port mappings and mount paths in `docker-compose.yml`.
+
+## Auth
+
+Compose runs `logtaha/vigo-auth-service:1.0.2` as `linux/amd64`.
+Set `AUTH_OTP_SECRET` in `auth/.env` using `openssl rand -base64 32`.
+Place `private_key.pem` and `public_key.pem` in `auth/.keys`. Compose mounts
+that directory at `/app/.keys`. You can point the mount elsewhere by exporting
+`AUTH_KEYS_DIR` before running Compose.
+
+To enable metrics, generate a password with `openssl rand -hex 32`. Set
+`AUTH_METRICS_PASSWORD` in `auth/.env` and put the same password in
+`prometheus/secrets/auth_metrics_password`. Create the `secrets` directory
+with mode 0700 and give the password file mode 0644 so the Prometheus
+container can read its mounted copy. Create an empty file at that path
+if you run Prometheus with auth scraping disabled.
+
+```sh
+docker compose pull auth
+docker compose up -d auth
+curl --fail http://localhost:8080/.well-known/jwks.json
+```
+
+Export `AUTH_PORT` before running Compose to change the host HTTP port.
+Auth uses the Compose PostgreSQL and Redis services. Redis listens on port 6379
+inside the network.
+PostgreSQL creates `vigo_auth_service` when initializing a new volume.
+If an existing volume predates that database, create it before starting auth.
+By default, auth calls the user service at `host.docker.internal:50051`.
+Set `USER_GRPC_HOST` and `USER_GRPC_PORT` if it runs elsewhere.
+
 ## Redis
 
 The Redis service uses `redis:7`, reusing the local image when available.
@@ -12,7 +60,7 @@ docker compose exec redis redis-cli ping
 
 The health check should return `PONG`. Connect from your machine at
 `127.0.0.1:6379`, or from services on `app-network` at `redis:6379`.
-Set `REDIS_PORT` in `.env` to change the host port.
+Export `REDIS_PORT` before running Compose to change the host port.
 
 Service settings are in `docker-compose.yml`; Redis uses its default server
 settings without a separate configuration file. The `redis_data` volume stores
@@ -21,7 +69,7 @@ to localhost; no password is configured for this local development service.
 
 ## Kibana dashboard
 
-Copy `.env.example` to `.env`, fill in the required values, then run:
+After setting up the service environment files, run:
 
 ```sh
 docker compose up -d

@@ -31,6 +31,11 @@ sources:
       - "logging=true"
     exclude_containers:
       - vector
+    multiline:
+      start_pattern: '^\d{4}-\d{2}-\d{2}T\S+[ \t]+(?:TRACE|DEBUG|INFO|WARN|ERROR|FATAL)[ \t]+\d+[ \t]+---[ \t]+\[auth\]'
+      condition_pattern: '^(?:[ \t]*$|[ \t]*(?:at |Caused by: |Suppressed: |\.\.\. \d+ (?:common frames omitted|more))|[\w.$]*(?:Exception|Error|Throwable)(?::|$))'
+      mode: continue_through
+      timeout_ms: 1000
 
 # ── Transforms ──────────────────────────────────────────────
 transforms:
@@ -106,10 +111,50 @@ transforms:
         parsed, err = parse_json(.message)
         if err == null && is_object(parsed) {
           . = merge!(., parsed)
+        } else if .service_name == "auth" {
+          # Match the console pattern shipped by vigo-auth-service:1.0.2.
+          line = strip_ansi_escape_codes(string!(.message))
+          log, log_err = parse_regex(line, r'^(?P<log_time>\d{4}-\d{2}-\d{2}T\S+)[ \t]+(?P<level>TRACE|DEBUG|INFO|WARN|ERROR|FATAL)[ \t]+\d+[ \t]+---[ \t]+\[auth\][ \t]+\[(?P<thread_name>[^\r\n\]]+)\][ \t]+\[(?P<correlation>[^\r\n\]]*)\][ \t]+(?P<logger_name>\S+)[ \t]+:[ \t]*(?P<body>[^\r\n]*)(?:\r?\n(?P<stack_trace>[\s\S]*))?$')
+          if log_err == null {
+            .level = log.level
+            .logger_name = log.logger_name
+            .thread_name = strip_whitespace(string!(log.thread_name))
+            .message = log.body
+            parsed_time, time_err = parse_timestamp(log.log_time, format: "%+")
+            if time_err == null {
+              .@timestamp = parsed_time
+            }
+
+            ids, ids_err = parse_regex(log.correlation, r'^[ \t]*(?P<traceId>[0-9a-fA-F]{32})-(?P<spanId>[0-9a-fA-F]{16})[ \t]*$')
+            if ids_err == null {
+              .traceId = ids.traceId
+              .spanId = ids.spanId
+            }
+
+            stack = strip_whitespace(string(log.stack_trace) ?? "")
+            if stack != "" {
+              .stack_trace = stack
+            }
+
+            # SLF4J puts quoted key/value pairs ahead of the human-readable message.
+            payload, payload_err = parse_regex(log.body, r'^(?P<fields>(?:[A-Za-z_][A-Za-z_0-9]*=(?:"(?:\\.|[^"\\])*"|null)[ \t]+)+)(?P<text>.*)$')
+            if payload_err == null {
+              fields, fields_err = parse_key_value(payload.fields, accept_standalone_key: false)
+              if fields_err == null {
+                .auth_fields = fields
+                .message = payload.text
+              }
+            }
+          }
         }
       }
 
-      .@timestamp = now()
+      if !exists(.@timestamp) {
+        .@timestamp = .timestamp
+        if .@timestamp == null {
+          .@timestamp = now()
+        }
+      }
 
 # ── Sinks ───────────────────────────────────────────────────
 sinks:

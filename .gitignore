@@ -1,2 +1,6 @@
 .env
 .DS_Store
+
+.keys
+
+/prometheus/secrets/

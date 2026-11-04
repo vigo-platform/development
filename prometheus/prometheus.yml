@@ -25,5 +25,8 @@ scrape_configs:
 
   - job_name: 'app'
     metrics_path: '/actuator/prometheus'
+    basic_auth:
+      username: prometheus
+      password_file: /run/secrets/auth_metrics_password
     static_configs:
-      - targets: ['host.docker.internal:8080']
+      - targets: ['auth:8080']
