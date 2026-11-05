@@ -1,0 +1,17 @@
+services:
+  alertmanager:
+    entrypoint: ["/bin/alertmanager"]
+    command:
+      - --config.file=/etc/alertmanager/local.yml
+      - --storage.path=/alertmanager
+    configs:
+      - source: local_alertmanager_config
+        target: /etc/alertmanager/local.yml
+
+configs:
+  local_alertmanager_config:
+    content: |
+      route:
+        receiver: local
+      receivers:
+        - name: local
