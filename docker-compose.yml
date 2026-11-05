@@ -55,6 +55,8 @@ services:
     env_file:
       - path: ./auth/.env
         format: raw
+    environment:
+      USER_GRPC_HOST: ${USER_GRPC_HOST:-user}
     volumes:
       - type: bind
         source: ${AUTH_KEYS_DIR:-./auth/.keys}
@@ -68,6 +70,23 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  user:
+    image: logtaha/vigo-user-service:1.0.0
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${USER_PORT:-8081}:8081"
+    labels:
+      logging: true
+    env_file:
+      - path: ./user/.env
+        format: raw
+    depends_on:
+      postgres:
         condition: service_healthy
     networks:
       - app-network

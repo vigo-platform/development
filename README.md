@@ -16,12 +16,13 @@ done
 
 Enter literal values without surrounding quotes. Fill in the Telegram settings
 in `alertmanager/.env` before starting Alertmanager. If you change the
-PostgreSQL credentials, update `auth/.env` and `postgres-exporter/.env` to
-match. Compose uses its own port mappings and mount paths in `docker-compose.yml`.
+PostgreSQL credentials, update `auth/.env`, `user/.env`, and
+`postgres-exporter/.env` to match. Compose uses its own port mappings and mount
+paths in `docker-compose.yml`.
 
 ## Auth
 
-Compose runs `logtaha/vigo-auth-service:1.0.2` as `linux/amd64`.
+Compose runs `logtaha/vigo-auth-service:1.0.3` as `linux/amd64`.
 Set `AUTH_OTP_SECRET` in `auth/.env` using `openssl rand -base64 32`.
 Place `private_key.pem` and `public_key.pem` in `auth/.keys`. Compose mounts
 that directory at `/app/.keys`. You can point the mount elsewhere by exporting
@@ -35,8 +36,8 @@ container can read its mounted copy. Create an empty file at that path
 if you run Prometheus with auth scraping disabled.
 
 ```sh
-docker compose pull auth
-docker compose up -d auth
+docker compose pull auth user
+docker compose up -d auth user
 curl --fail http://localhost:8080/.well-known/jwks.json
 ```
 
@@ -45,8 +46,49 @@ Auth uses the Compose PostgreSQL and Redis services. Redis listens on port 6379
 inside the network.
 PostgreSQL creates `vigo_auth_service` when initializing a new volume.
 If an existing volume predates that database, create it before starting auth.
-By default, auth calls the user service at `host.docker.internal:50051`.
-Set `USER_GRPC_HOST` and `USER_GRPC_PORT` if it runs elsewhere.
+By default, auth calls the user service at `user:50051`. To point auth at
+another host, export `USER_GRPC_HOST` before running Compose. Set the port
+in `auth/.env`.
+
+## User
+
+Compose pulls `logtaha/vigo-user-service:1.0.0` for `linux/amd64`. Put the
+server settings in `user/.env` using `user/.env.example` as a reference.
+Match the database credentials in `postgres/.env` and the JWT issuer and
+audience in `auth/.env`. User fetches signing keys from Auth on `app-network`.
+
+HTTP is available on the host at `127.0.0.1:8081`. Export `USER_PORT` to
+change the host port. The gRPC port `50051` and the management port `8082`
+are internal to Docker. Prometheus scrapes `/actuator/prometheus` on both
+`user:8082` and `auth:8080` under the `user` and `auth` jobs, respectively.
+Update any saved PromQL queries using `job="app"` to use `job="auth"`.
+
+PostgreSQL creates `vigo_user_service` when it initializes a fresh volume.
+If your existing volume lacks this database, create it once before starting
+User. If you have data in the older `vigo-user-service` database, migrate that
+data to `vigo_user_service` before starting User.
+
+```sh
+docker compose up -d --wait postgres
+docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres' <<'SQL'
+SELECT 'CREATE DATABASE vigo_user_service'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'vigo_user_service') \gexec
+SQL
+```
+
+On a server already running the stack, deploy the updated files and `user/.env`,
+then run the following to start User and load the new Prometheus configuration.
+
+```sh
+docker compose pull user
+docker compose up -d --wait user auth
+docker compose up -d --no-deps --force-recreate prometheus
+docker compose ps user auth prometheus
+```
+
+The provided settings disable the Kafka outbox relay and use plaintext gRPC
+on a trusted development network. Auth 1.0.3 requires a client upgrade for
+production mTLS.
 
 ## Redis
 
