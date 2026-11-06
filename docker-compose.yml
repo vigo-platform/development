@@ -136,7 +136,7 @@ services:
       - app-network
 
   gateway:
-    image: logtaha/vigo-gateway-service:1.0.0
+    image: logtaha/vigo-gateway-service:1.0.1
     platform: linux/amd64
     restart: unless-stopped
     ports:
