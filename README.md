@@ -92,6 +92,26 @@ The provided settings disable the Kafka outbox relay and use plaintext gRPC
 on a trusted development network. Auth 1.0.3 requires a client upgrade for
 production mTLS.
 
+## Gateway
+
+Compose runs `logtaha/vigo-gateway-service:1.0.0` as `linux/amd64` and reads
+`gateway/.env`. Gateway uses `auth:8080` and `user:8081` on `app-network`.
+It listens on `127.0.0.1:8080` on the host by default. Export `GATEWAY_PORT`
+before running Compose to change the host port. Keep `SERVER_PORT=8080` in
+`gateway/.env` to match the container port.
+
+```sh
+docker compose pull gateway
+docker compose up -d gateway
+curl --fail http://127.0.0.1:8080/actuator/health
+curl --fail http://127.0.0.1:8080/.well-known/jwks.json
+```
+
+The files route requires a separately running Storage service. By default,
+Gateway expects it at `storage:8083` on `app-network`. Set `STORAGE_HOST` and
+`STORAGE_PORT` in `gateway/.env` if Storage uses a different address reachable
+from the Gateway container.
+
 ## Redis
 
 The Redis service uses `redis:7`, reusing the local image when available.
