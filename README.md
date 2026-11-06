@@ -38,10 +38,12 @@ if you run Prometheus with auth scraping disabled.
 ```sh
 docker compose pull auth user
 docker compose up -d auth user
-curl --fail http://localhost:8080/.well-known/jwks.json
+curl --fail http://localhost:8084/.well-known/jwks.json
 ```
 
-Export `AUTH_PORT` before running Compose to change the host HTTP port.
+Auth listens on host port 8084 by default. Export `AUTH_PORT` before running
+Compose to change the host port. Compose sets `SERVER_PORT` to 8080 inside
+the container.
 Auth uses the Compose PostgreSQL and Redis services. Redis listens on port 6379
 inside the network.
 PostgreSQL creates `vigo_auth_service` when initializing a new volume.

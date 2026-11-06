@@ -49,13 +49,14 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${AUTH_PORT:-8080}:8080"
+      - "127.0.0.1:${AUTH_PORT:-8084}:8080"
     labels:
       logging: true
     env_file:
       - path: ./auth/.env
         format: raw
     environment:
+      SERVER_PORT: 8080
       USER_GRPC_HOST: ${USER_GRPC_HOST:-user}
     volumes:
       - type: bind
