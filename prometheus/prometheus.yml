@@ -44,4 +44,4 @@ scrape_configs:
   - job_name: 'notification'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['notification:8080']
+      - targets: ['notification:8085']

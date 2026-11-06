@@ -157,13 +157,14 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${COMPOSE_NOTIFICATION_HOST_PORT:-8085}:8080"
+      - "127.0.0.1:${COMPOSE_NOTIFICATION_HOST_PORT:-8085}:8085"
     labels:
       logging: true
     env_file:
       - path: ./notification/.env
         format: raw
     environment:
+      SERVER_PORT: "8085"
       # The host listener in notification/.env is for runs outside Compose.
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
