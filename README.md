@@ -22,10 +22,11 @@ own directories. The stack can run without a root `.env`.
 
 Compose controls published ports and bind mounts in `docker-compose.yml`.
 Use `COMPOSE_AUTH_HOST_PORT`, `COMPOSE_USER_HOST_PORT`,
-`COMPOSE_GATEWAY_HOST_PORT`, or `COMPOSE_REDIS_HOST_PORT` in the shell or an
-optional root `.env` to customize published ports. If you previously set
-`AUTH_PORT`, `USER_PORT`, `GATEWAY_PORT`, or `REDIS_PORT` to customize a host
-port, move that setting to the corresponding `COMPOSE_*_HOST_PORT` variable.
+`COMPOSE_GATEWAY_HOST_PORT`, `COMPOSE_NOTIFICATION_HOST_PORT`, or
+`COMPOSE_REDIS_HOST_PORT` in the shell or an optional root `.env` to customize
+published ports. If you previously set `AUTH_PORT`, `USER_PORT`,
+`GATEWAY_PORT`, or `REDIS_PORT` to customize a host port, move that setting to
+the corresponding `COMPOSE_*_HOST_PORT` variable.
 Keep the service listener ports aligned with the container ports and scrape
 targets in the repository.
 
@@ -123,6 +124,24 @@ Gateway expects it at `storage:8083` on `app-network`. Set `STORAGE_HOST` and
 `STORAGE_PORT` in `gateway/.env` if Storage uses a different address reachable
 from the Gateway container.
 
+## Notification
+
+Compose runs `logtaha/vigo-notification-service:1.0.0` as `linux/amd64` and
+reads `notification/.env`. Keep `SERVER_PORT=8080` to match the container port.
+Compose publishes HTTP on `127.0.0.1:8085` by default. Vector collects the
+container logs through the `logging=true` label.
+
+To enable email delivery, fill in the SMTP relay settings in `notification/.env`
+and set `NOTIFICATION_KAFKA_ENABLED=true`. Compose starts Notification after
+`kafka-init` has provisioned `notification.commands`. It uses `kafka:9092`
+inside the container. The `localhost:29092` value in the env file is for runs
+directly on the host.
+
+```sh
+docker compose up -d notification
+curl --fail http://127.0.0.1:8085/actuator/health
+```
+
 ## Prometheus
 
 `prometheus/prometheus.yml` configures scraping and points to Alertmanager.
@@ -166,24 +185,12 @@ docker compose up -d --wait kafka
 docker compose run --rm kafka-init
 ```
 
-A full `docker compose up -d` runs `kafka-init` after Kafka is healthy. The
-initializer creates `notification.commands` if it is missing, with one
-partition, one replica, `min.insync.replicas=1`, `cleanup.policy=delete`, and
-`retention.ms=3600000` (one hour). Wait for the initializer to exit successfully
-before starting the consumer. Broker-side topic auto-creation is disabled.
-
-For local Kafka consumption, set these values in the Notification service's
-own `.env` alongside its SMTP relay settings:
-
-```ini
-NOTIFICATION_KAFKA_ENABLED=true
-KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-KAFKA_CONSUMER_GROUP=vigo-notification-service-v1
-```
-
-Use `kafka:9092` for Notification on `app-network`, or
-`localhost:29092` for Notification running directly on the host. The host
-listener is published on loopback and the controller port stays inside Docker.
+Compose runs `kafka-init` after Kafka is healthy. The initializer creates
+`notification.commands` if it is missing, with one partition, one replica,
+`min.insync.replicas=1`, `cleanup.policy=delete`, and `retention.ms=3600000`
+(one hour). Broker-side topic auto-creation is disabled.
+The host listener is published on loopback and the controller port stays
+inside Docker.
 
 ## Kibana dashboard
 
