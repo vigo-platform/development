@@ -153,6 +153,38 @@ settings without a separate configuration file. The `redis_data` volume stores
 any snapshots Redis writes; AOF is disabled by default. The host port is bound
 to localhost; no password is configured for this local development service.
 
+## Kafka
+
+Compose runs `apache/kafka:3.9.1` as a single KRaft broker and controller. It
+reads `kafka/.env` and stores data in `kafka_data`. On a fresh checkout, copy
+`kafka/.env.example` to `kafka/.env` using the setup above.
+
+To start only Kafka and provision the Notification topic, run
+
+```sh
+docker compose up -d --wait kafka
+docker compose run --rm kafka-init
+```
+
+A full `docker compose up -d` runs `kafka-init` after Kafka is healthy. The
+initializer creates `notification.commands` if it is missing, with one
+partition, one replica, `min.insync.replicas=1`, `cleanup.policy=delete`, and
+`retention.ms=3600000` (one hour). Wait for the initializer to exit successfully
+before starting the consumer. Broker-side topic auto-creation is disabled.
+
+For local Kafka consumption, set these values in the Notification service's
+own `.env` alongside its SMTP relay settings:
+
+```ini
+NOTIFICATION_KAFKA_ENABLED=true
+KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+KAFKA_CONSUMER_GROUP=vigo-notification-service-v1
+```
+
+Use `kafka:9092` for Notification on `app-network`, or
+`localhost:29092` for Notification running directly on the host. The host
+listener is published on loopback and the controller port stays inside Docker.
+
 ## Kibana dashboard
 
 After setting up the service environment files, run:

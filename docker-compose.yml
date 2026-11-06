@@ -22,6 +22,52 @@ services:
       retries: 5
       start_period: 5s
 
+  kafka:
+    image: &kafka-image apache/kafka:3.9.1
+    env_file:
+      - path: ./kafka/.env
+        format: raw
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:29092:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  kafka-init:
+    image: *kafka-image
+    restart: "no"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - app-network
+    entrypoint: ["/opt/kafka/bin/kafka-topics.sh"]
+    command:
+      - --bootstrap-server
+      - kafka:9092
+      - --create
+      - --if-not-exists
+      - --topic
+      - notification.commands
+      - --partitions
+      - "1"
+      - --replication-factor
+      - "1"
+      - --config
+      - min.insync.replicas=1
+      - --config
+      - cleanup.policy=delete
+      - --config
+      - retention.ms=3600000
+
   postgres:
     image: postgres:16-alpine
     container_name: postgres
@@ -307,6 +353,7 @@ secrets:
 
 volumes:
   redis_data:
+  kafka_data:
   postgres_data:
   prometheus_data:
   grafana_data:
