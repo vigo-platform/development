@@ -50,10 +50,14 @@ docker compose up -d auth user
 curl --fail http://localhost:8084/.well-known/jwks.json
 ```
 
-Auth reads its API and metrics ports from `auth/.env`. For an existing
-deployment, set `SERVER_PORT=8080` and `MANAGEMENT_SERVER_PORT=8084` in
-`auth/.env` before recreating Auth. The API is published on host port `8084`
-by default.
+Auth uses the `SERVER_PORT=8084` listener in `auth/.env` for its API, JWKS,
+and metrics. Compose publishes it at `127.0.0.1:8084` by default.
+
+For an existing deployment, set `SERVER_PORT=8084` and remove
+`MANAGEMENT_SERVER_PORT` from `auth/.env`. Set `AUTH_PORT=8084` in
+`gateway/.env` and `AUTH_JWKS_URI=http://auth:8084/.well-known/jwks.json`
+in `user/.env`. Keep the other values in those files, then run
+`docker compose up -d auth user gateway`.
 Auth uses the Compose PostgreSQL and Redis services. Redis listens on port 6379
 inside the network.
 PostgreSQL creates `vigo_auth_service` when initializing a new volume.
@@ -103,7 +107,7 @@ production mTLS.
 ## Gateway
 
 Compose runs `logtaha/vigo-gateway-service:1.0.0` as `linux/amd64` and reads
-`gateway/.env`. Gateway uses `auth:8080` and `user:8081` on `app-network`.
+`gateway/.env`. Gateway uses `auth:8084` and `user:8081` on `app-network`.
 It listens on `127.0.0.1:8080` on the host by default. Keep `SERVER_PORT=8080`
 in `gateway/.env` to match the container port.
 
@@ -124,8 +128,8 @@ from the Gateway container.
 `prometheus/prometheus.yml` configures scraping and points to Alertmanager.
 It scrapes `/actuator/prometheus` for the application jobs `auth` at
 `auth:8084`, `user` at `user:8082`, and `gateway` at `gateway:8080`.
-Auth uses an internal management listener on port 8084 with HTTP Basic
-authentication. Gateway and User still use `auth:8080` for the Auth API.
+Auth serves metrics on the same listener as its API and requires HTTP Basic
+authentication for the metrics endpoint.
 
 `prometheus/alert_rules.yml` defines `InstanceDown` and `PostgresDown`.
 Prometheus loads the rules through `rule_files` and sends firing alerts to

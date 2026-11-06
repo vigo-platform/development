@@ -49,7 +49,7 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${COMPOSE_AUTH_HOST_PORT:-8084}:8080"
+      - "127.0.0.1:${COMPOSE_AUTH_HOST_PORT:-8084}:8084"
     labels:
       logging: true
     env_file:
