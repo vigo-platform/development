@@ -17,8 +17,17 @@ done
 Enter literal values without surrounding quotes. Fill in the Telegram settings
 in `alertmanager/.env` before starting Alertmanager. If you change the
 PostgreSQL credentials, update `auth/.env`, `user/.env`, and
-`postgres-exporter/.env` to match. Compose uses its own port mappings and mount
-paths in `docker-compose.yml`.
+`postgres-exporter/.env` to match. Service environment files belong in their
+own directories. The stack can run without a root `.env`.
+
+Compose controls published ports and bind mounts in `docker-compose.yml`.
+Use `COMPOSE_AUTH_HOST_PORT`, `COMPOSE_USER_HOST_PORT`,
+`COMPOSE_GATEWAY_HOST_PORT`, or `COMPOSE_REDIS_HOST_PORT` in the shell or an
+optional root `.env` to customize published ports. If you previously set
+`AUTH_PORT`, `USER_PORT`, `GATEWAY_PORT`, or `REDIS_PORT` to customize a host
+port, move that setting to the corresponding `COMPOSE_*_HOST_PORT` variable.
+Keep the service listener ports aligned with the container ports and scrape
+targets in the repository.
 
 ## Auth
 
@@ -41,16 +50,17 @@ docker compose up -d auth user
 curl --fail http://localhost:8084/.well-known/jwks.json
 ```
 
-Auth listens on host port 8084 by default. Export `AUTH_PORT` before running
-Compose to change the host port. Compose sets `SERVER_PORT` to 8080 inside
-the container.
+Auth reads its API and metrics ports from `auth/.env`. For an existing
+deployment, set `SERVER_PORT=8080` and `MANAGEMENT_SERVER_PORT=8084` in
+`auth/.env` before recreating Auth. The API is published on host port `8084`
+by default.
 Auth uses the Compose PostgreSQL and Redis services. Redis listens on port 6379
 inside the network.
 PostgreSQL creates `vigo_auth_service` when initializing a new volume.
 If an existing volume predates that database, create it before starting auth.
-By default, auth calls the user service at `user:50051`. To point auth at
-another host, export `USER_GRPC_HOST` before running Compose. Set the port
-in `auth/.env`.
+By default, auth calls the user service at `user:50051`. Set `USER_GRPC_HOST`
+and `USER_GRPC_PORT` in `auth/.env` to change that destination. If you
+previously set `USER_GRPC_HOST` in the shell, move the value to `auth/.env`.
 
 ## User
 
@@ -59,9 +69,8 @@ server settings in `user/.env` using `user/.env.example` as a reference.
 Match the database credentials in `postgres/.env` and the JWT issuer and
 audience in `auth/.env`. User fetches signing keys from Auth on `app-network`.
 
-HTTP is available on the host at `127.0.0.1:8081`. Export `USER_PORT` to
-change the host port. The gRPC port `50051` and the management port `8082`
-are internal to Docker.
+HTTP is available on the host at `127.0.0.1:8081` by default. The gRPC port
+`50051` and the management port `8082` are internal to Docker.
 Update any saved PromQL queries using `job="app"` to use `job="auth"`.
 
 PostgreSQL creates `vigo_user_service` when it initializes a fresh volume.
@@ -95,9 +104,8 @@ production mTLS.
 
 Compose runs `logtaha/vigo-gateway-service:1.0.0` as `linux/amd64` and reads
 `gateway/.env`. Gateway uses `auth:8080` and `user:8081` on `app-network`.
-It listens on `127.0.0.1:8080` on the host by default. Export `GATEWAY_PORT`
-before running Compose to change the host port. Keep `SERVER_PORT=8080` in
-`gateway/.env` to match the container port.
+It listens on `127.0.0.1:8080` on the host by default. Keep `SERVER_PORT=8080`
+in `gateway/.env` to match the container port.
 
 ```sh
 docker compose pull gateway
@@ -135,7 +143,6 @@ docker compose exec redis redis-cli ping
 
 The health check should return `PONG`. Connect from your machine at
 `127.0.0.1:6379`, or from services on `app-network` at `redis:6379`.
-Export `REDIS_PORT` before running Compose to change the host port.
 
 Service settings are in `docker-compose.yml`; Redis uses its default server
 settings without a separate configuration file. The `redis_data` volume stores

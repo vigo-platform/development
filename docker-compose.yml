@@ -8,7 +8,7 @@ services:
         format: raw
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${COMPOSE_REDIS_HOST_PORT:-6379}:6379"
     labels:
       logging: true
     volumes:
@@ -49,16 +49,12 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${AUTH_PORT:-8084}:8080"
+      - "127.0.0.1:${COMPOSE_AUTH_HOST_PORT:-8084}:8080"
     labels:
       logging: true
     env_file:
       - path: ./auth/.env
         format: raw
-    environment:
-      SERVER_PORT: 8080
-      MANAGEMENT_SERVER_PORT: 8084
-      USER_GRPC_HOST: ${USER_GRPC_HOST:-user}
     volumes:
       - type: bind
         source: ${AUTH_KEYS_DIR:-./auth/.keys}
@@ -81,7 +77,7 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${USER_PORT:-8081}:8081"
+      - "127.0.0.1:${COMPOSE_USER_HOST_PORT:-8081}:8081"
     labels:
       logging: true
     env_file:
@@ -98,7 +94,7 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
+      - "127.0.0.1:${COMPOSE_GATEWAY_HOST_PORT:-8080}:8080"
     labels:
       logging: true
     env_file:
