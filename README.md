@@ -61,8 +61,7 @@ audience in `auth/.env`. User fetches signing keys from Auth on `app-network`.
 
 HTTP is available on the host at `127.0.0.1:8081`. Export `USER_PORT` to
 change the host port. The gRPC port `50051` and the management port `8082`
-are internal to Docker. Prometheus scrapes `/actuator/prometheus` on both
-`user:8082` and `auth:8080` under the `user` and `auth` jobs, respectively.
+are internal to Docker.
 Update any saved PromQL queries using `job="app"` to use `job="auth"`.
 
 PostgreSQL creates `vigo_user_service` when it initializes a fresh volume.
@@ -111,6 +110,18 @@ The files route requires a separately running Storage service. By default,
 Gateway expects it at `storage:8083` on `app-network`. Set `STORAGE_HOST` and
 `STORAGE_PORT` in `gateway/.env` if Storage uses a different address reachable
 from the Gateway container.
+
+## Prometheus
+
+`prometheus/prometheus.yml` configures scraping and points to Alertmanager.
+It scrapes `/actuator/prometheus` for the application jobs `auth` at
+`auth:8084`, `user` at `user:8082`, and `gateway` at `gateway:8080`.
+Auth uses an internal management listener on port 8084 with HTTP Basic
+authentication. Gateway and User still use `auth:8080` for the Auth API.
+
+`prometheus/alert_rules.yml` defines `InstanceDown` and `PostgresDown`.
+Prometheus loads the rules through `rule_files` and sends firing alerts to
+Alertmanager, which uses `alertmanager/alertmanager.yml.tmpl` for routing.
 
 ## Redis
 

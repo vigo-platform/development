@@ -29,9 +29,14 @@ scrape_configs:
       username: prometheus
       password_file: /run/secrets/auth_metrics_password
     static_configs:
-      - targets: ['auth:8080']
+      - targets: ['auth:8084']
 
   - job_name: 'user'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets: ['user:8082']
+
+  - job_name: 'gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['gateway:8080']
