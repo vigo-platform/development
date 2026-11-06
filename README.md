@@ -126,7 +126,7 @@ from the Gateway container.
 
 ## Notification
 
-Compose runs `logtaha/vigo-notification-service:1.0.0` as `linux/amd64` and
+Compose runs `logtaha/vigo-notification-service:1.0.2` as `linux/amd64` and
 reads `notification/.env`. Keep `SERVER_PORT=8080` to match the container port.
 Compose publishes HTTP on `127.0.0.1:8085` by default. Vector collects the
 container logs through the `logging=true` label.
@@ -146,7 +146,8 @@ curl --fail http://127.0.0.1:8085/actuator/health
 
 `prometheus/prometheus.yml` configures scraping and points to Alertmanager.
 It scrapes `/actuator/prometheus` for the application jobs `auth` at
-`auth:8084`, `user` at `user:8082`, and `gateway` at `gateway:8080`.
+`auth:8084`, `user` at `user:8082`, `gateway` at `gateway:8080`, and
+`notification` at `notification:8080`.
 Auth serves metrics on the same listener as its API and requires HTTP Basic
 authentication for the metrics endpoint.
 
