@@ -22,9 +22,10 @@ own directories. The stack can run without a root `.env`.
 
 Compose controls published ports and bind mounts in `docker-compose.yml`.
 Use `COMPOSE_AUTH_HOST_PORT`, `COMPOSE_USER_HOST_PORT`,
-`COMPOSE_GATEWAY_HOST_PORT`, `COMPOSE_NOTIFICATION_HOST_PORT`, or
-`COMPOSE_REDIS_HOST_PORT` in the shell or an optional root `.env` to customize
-published ports. If you previously set `AUTH_PORT`, `USER_PORT`,
+`COMPOSE_GATEWAY_HOST_PORT`, `COMPOSE_NOTIFICATION_HOST_PORT`,
+`COMPOSE_FRONTEND_HOST_PORT`, or `COMPOSE_REDIS_HOST_PORT` in the shell or an
+optional root `.env` to customize published ports. If you previously set
+`AUTH_PORT`, `USER_PORT`,
 `GATEWAY_PORT`, or `REDIS_PORT` to customize a host port, move that setting to
 the corresponding `COMPOSE_*_HOST_PORT` variable.
 Keep the service listener ports aligned with the container ports and scrape
@@ -140,6 +141,41 @@ directly on the host.
 ```sh
 docker compose up -d notification
 curl --fail http://127.0.0.1:8085/actuator/health
+```
+
+## Frontend
+
+Compose runs `logtaha/vigo-front-end:1.0.0` as `linux/amd64` and reads
+`frontend/.env`. Copy `frontend/.env.example` to `frontend/.env` on a fresh
+checkout. The template includes `VITE_API_BASE_URL=https://api.vigoapp.ir`,
+`VITE_BASE_APPLICATION_PORT=5173`, and
+`VITE_BASE_APPLICATION_SERVER=127.0.0.1`.
+
+The image serves a prebuilt Vite app through Nginx on container port `8080`.
+Compose publishes it at `http://127.0.0.1:5173` by default; set
+`COMPOSE_FRONTEND_HOST_PORT` to change only the host port. The Vite port and
+server variables do not configure Nginx's listener.
+
+Vite variables are build-time settings. Passing them through `env_file` does
+not rewrite the JavaScript already built into this image. Rebuild and publish
+the frontend image with the required settings to change its API base URL.
+Version `1.0.0` uses relative `/api/` requests, which its Nginx configuration
+proxies to `http://gateway:8080` on `app-network`. Compose starts Gateway
+before Frontend. Vector collects the container logs through `logging=true`.
+The image includes an HTTP health check on port `8080`.
+
+After configuring the backend service environment files and Auth keys:
+
+```sh
+docker compose pull frontend
+```
+
+```sh
+docker compose up -d frontend
+```
+
+```sh
+curl --fail http://127.0.0.1:5173/
 ```
 
 ## Prometheus
