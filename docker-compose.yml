@@ -49,24 +49,25 @@ services:
         condition: service_healthy
     networks:
       - app-network
-    entrypoint: ["/opt/kafka/bin/kafka-topics.sh"]
+    entrypoint: ["/bin/sh", "-c"]
+    # Auto topic creation is disabled, so every topic a service publishes to must
+    # exist here. Domain events keep a longer retention than short-lived OTP
+    # commands because consumers must be able to replay them.
     command:
-      - --bootstrap-server
-      - kafka:9092
-      - --create
-      - --if-not-exists
-      - --topic
-      - notification.commands
-      - --partitions
-      - "1"
-      - --replication-factor
-      - "1"
-      - --config
-      - min.insync.replicas=1
-      - --config
-      - cleanup.policy=delete
-      - --config
-      - retention.ms=3600000
+      - |
+        set -e
+        create() {
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
+            --create --if-not-exists --topic "$1" \
+            --partitions 1 --replication-factor 1 \
+            --config min.insync.replicas=1 \
+            --config cleanup.policy=delete \
+            --config retention.ms="$2"
+        }
+        create notification.commands 3600000
+        create user.events 604800000
+        create storage.events 604800000
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
 
   postgres:
     image: postgres:16-alpine
