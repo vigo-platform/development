@@ -92,7 +92,7 @@ services:
       retries: 5
 
   auth:
-    image: logtaha/vigo-auth-service:1.0.5
+    image: logtaha/vigo-auth-service:1.1.0
     platform: linux/amd64
     restart: unless-stopped
     ports:
@@ -175,7 +175,7 @@ services:
       - app-network
 
   frontend:
-    image: logtaha/vigo-front-end:1.0.1
+    image: logtaha/vigo-front-end:1.0.2
     platform: linux/amd64
     restart: unless-stopped
     ports:
@@ -301,7 +301,7 @@ services:
   # ── Elasticsearch ──────────────────────────────────────────
 
   elasticsearch:
-    image: elasticsearch:8.15.3
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
     container_name: elasticsearch
     restart: unless-stopped
     env_file:
