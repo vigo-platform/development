@@ -180,8 +180,6 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:${COMPOSE_FRONTEND_HOST_PORT:-5173}:8080"
-    labels:
-      logging: true
     env_file:
       - path: ./frontend/.env
         format: raw
