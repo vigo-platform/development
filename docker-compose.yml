@@ -120,7 +120,7 @@ services:
       - app-network
 
   user:
-    image: logtaha/vigo-user-service:1.0.2
+    image: logtaha/vigo-user-service:1.2.1
     platform: linux/amd64
     restart: unless-stopped
     ports:
