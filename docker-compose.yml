@@ -175,7 +175,7 @@ services:
       - app-network
 
   frontend:
-    image: logtaha/vigo-front-end:2.0.1
+    image: logtaha/vigo-front-end:2.1.0
     platform: linux/amd64
     restart: unless-stopped
     ports:
