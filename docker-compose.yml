@@ -154,7 +154,7 @@ services:
       - app-network
 
   notification:
-    image: logtaha/vigo-notification-service:2.1.0
+    image: logtaha/vigo-notification-service:2.2.0
     platform: linux/amd64
     restart: unless-stopped
     ports:
